@@ -1,3 +1,5 @@
+#author: vera borvinski
+#matriculation nr: 2421818
 import sys
 import socket
 
