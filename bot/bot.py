@@ -3,14 +3,14 @@
 import sys
 import socket
 import datetime
+import random
 
 #to be made editable in cl
 host = "fc00:1337::19"
 port = 6667
 name = "bot"
 channel = "#test"
-userList = [name]
-m = "users in this channel: "
+userList = []
 
 #how to connect socket to IPv6: https://stackoverflow.com/questions/5358021/establishing-an-ipv6-connection-using-sockets-in-python
 irc = socket.socket(socket.AF_INET6, socket.SOCK_STREAM)
@@ -35,18 +35,25 @@ def main():
             respondChannel(msg, user)
         elif msg.find("QUIT") != -1:
             user = msg.split('!',1)[0][1:]
-            if user in userList: userList.remove(user)
-            print(m.join(map(str,userList)))
+            print(user)
+            userList.remove(user)
+            print("users in this channel: ", end="")
+            print(*userList, sep = ", ")
         elif msg.find("JOIN") != -1:
-            user = msg.split('!',1)[0][1:]
-            userList.append(user)
-            print(m.join(map(str,userList)))
+            irc.send(bytes("NAMES "+channel+"\n", "UTF-8"))
+            msg = (irc.recv(2048).decode("UTF-8")).strip('nr')
+            userList.extend(msg.split(":",3)[2].split(" "))
+            print("users in this channel: ", end="")
+            print(*userList, sep = ", ")
+        elif msg.find("PING") != -1:
+            irc.send(bytes("PONG :", "UTF-8"))
             
 def respondChannel(m, user):
     if "!hello" in m:
         irc.send(bytes("PRIVMSG "+ channel +" : Hello "+user+" "+str(datetime.datetime.now())+"\n", "UTF-8"))
     elif "!slap" in m:
-        irc.send(bytes("PRIVMSG "+ channel +" : *slaps "+user+" with trout*\n", "UTF-8"))
+        print("hello")
+        irc.send(bytes("PRIVMSG "+ channel +" : *slaps "+str(random.choice(userList))+" with trout*\n", "UTF-8"))
 
 #def respondPrivate(user): 
     #irc.send(bytes("PRIVMSG "+ user +" : the earth is flat\n", "UTF-8"))
