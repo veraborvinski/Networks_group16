@@ -1,19 +1,32 @@
+#author: vera borvinski
+#matriculation nr: 2421818
+#importing modules
 import sys
 import socket
+import datetime
+import random
 
-host = "labpc013.computing.dundee.ac.uk"
-botnick = "bot"
-channel = "##test"
+#defining global variables
+#to be made editable in cl
+host = "fc00:1337::17"
+port = 6667
+name = "bot"
+channel = "#test"
+   
+#how to set up server socket: https://medium.com/python-pandemonium/python-socket-communication-e10b39225a4c
+irc = socket.socket(socket.AF_INET6, socket.SOCK_STREAM)
+irc.bind((host, port))
+irc.listen(1)
 
-with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as irc:
-    irc.bind((HOST, PORT))
-    irc.listen()
-    conn, addr = irc.accept()
-    with conn:
-        print(f"Connected by {addr}")
-        while True:
-            data = conn.recv(1024)
-            if not data:
-                break
-            conn.sendall(data)
-    
+while True:
+    print('\nwaiting for a connection')
+    connection, client_address = irc.accept()
+    try:
+        data = connection.recv(unpacker.size)
+        print('received {!r}'.format(binascii.hexlify(data)))
+
+        unpacked_data = unpacker.unpack(data)
+        print('unpacked:', unpacked_data)
+
+    finally:
+        connection.close()
