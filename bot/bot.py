@@ -32,7 +32,7 @@ def main():
     irc.send(bytes("USER "+name+" 0 * : "+name+"\n", "UTF-8"))
     irc.send(bytes("JOIN "+channel+"\n", "UTF-8"))
     #keeping server alive using infinite loop and receiving messages: https://acloudguru.com/blog/engineering/creating-an-irc-bot-with-python3
-    while 1:
+    while True:
         msg = (irc.recv(2048).decode("UTF-8")).strip('nr')
         print(msg)
         #given that the bot was able to connect, the user list is set to include the bot
