@@ -61,6 +61,7 @@ def main():
 			nickname = msg.split(" ",1)[1].strip("\n")
 			userList[usernr-1].nickname = nickname
 			print("\nWelcome "+nickname)
+		#if the message from client includes "USER", save their user info
 		elif msg.find("USER") != -1:
 			username = msg.split(" ",4)[1]
 			userList[usernr-1].username = username
@@ -70,11 +71,14 @@ def main():
 			userList[usernr-1].servername = servername
 			realname = msg.split(" ",4)[4].strip("\n")
 			userList[usernr-1].realname = realname
+		#if the message from client includes "NICK", stop recieving messages and break the loop
 		elif msg.find("QUIT") != -1:
 			print("Not recieving messages")
 			break
+		#no other commands have been added so far
 		else:
 			print("unknown command")
+	#close the current connection
 	print("Closing current connection")
 	connection.close()
 
