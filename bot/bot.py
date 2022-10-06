@@ -5,13 +5,20 @@ import sys
 import socket
 import datetime
 import random
+import argparse
 
+#how to deal with command line arguments: https://github.com/jrosdahl/miniircd/blob/master/miniircd
+parser = argparse.ArgumentParser()
+parser.add_argument('--host', nargs='?', const="fc00:1337::19", type=str, default="fc00:1337::19")
+parser.add_argument('--port', nargs='?', const=6667, type=int, default=6667)
+parser.add_argument('--name', nargs='?', const="bot", type=str, default="bot")
+parser.add_argument('--channel', nargs='?', const="#test", type=str, default="#test")
+args = parser.parse_args()
 #defining global variables
-#to be made editable in cl
-host = "fc00:1337::19"
-port = 6667
-name = "bot"
-channel = "#test"
+host = args.host
+port = args.port
+name = args.name
+channel = args.channel
 
 #how to connect socket to IPv6: https://stackoverflow.com/questions/5358021/establishing-an-ipv6-connection-using-sockets-in-python
 irc = socket.socket(socket.AF_INET6, socket.SOCK_STREAM)
@@ -64,13 +71,13 @@ def main():
             user = msg.split('!',1)[0][1:]
             respondPrivate(user)
 """
-the respondChannel function responds to a message in a channel
+the respond_channel function responds to a message in a channel
 
 :param str m: the message being responded to
 :param str user: the user who sent the message
 :param str userList: the list of user in the channel, not a global variable because there was random errors
 """
-def respondChannel(m, user, userList):
+def respond_channel(m, user, userList):
     #if the message was "!hello" the bot greets the user directly and gives the current date and time
     if "!hello" in m:
         irc.send(bytes("PRIVMSG "+ channel +" : Hello "+user+" "+str(datetime.datetime.now())+"\n", "UTF-8"))
@@ -79,11 +86,11 @@ def respondChannel(m, user, userList):
         print("hello")
         irc.send(bytes("PRIVMSG "+ channel +" : *slaps "+str(random.choice(userList))+" with trout*\n", "UTF-8"))
 """
-the respondPrivate function responds to a user's private message
+the respond_private function responds to a user's private message
 
 :param str user: the user who sent the message
 """
-def respondPrivate(user):
+def respond_private(user):
     #how to read random line from file: https://stackoverflow.com/questions/3540288/how-do-i-read-a-random-line-from-one-file
     #responds to user with a random fact
     irc.send(bytes("PRIVMSG "+ user +" "+random.choice(list(open('randomfacts.txt')))+"\n", "UTF-8"))

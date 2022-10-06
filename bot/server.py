@@ -5,6 +5,7 @@ import sys
 import socket
 import datetime
 import random
+import select
 
 #class used to hold user objects
 class User:
@@ -18,42 +19,43 @@ class User:
 		self.realname = r
 
 #defining global variables
-#to be made editable in cl
 host = "fc00:1337::17"
 port = 6667
-l = 1
 usernr = 0
 userList = list(range(100))
    
-#how to set up server socket: https://medium.com/python-pandemonium/python-socket-communication-e10b39225a4c
-irc = socket.socket(socket.AF_INET6, socket.SOCK_STREAM)
+def bind_new_socket(h, p):
+	global usernr
+	#how to set up server socket: https://medium.com/python-pandemonium/python-socket-communication-e10b39225a4c
+	irc = socket.socket(socket.AF_INET6, socket.SOCK_STREAM)
 
-#try to bind socket to host and port
-#control for errors: https://medium.com/python-pandemonium/python-socket-communication-e10b39225a4c
-try:
-    irc.bind((host, port))
-except socket.error as err:
-    print(err)
-    sys.exit(1)
- 
-#listen to whether a client connects   
-irc.listen(1)
-
-#while a connection is not recieved, let user know we are waiing for a connection
-while l == 1:
-	print('\nWaiting for a connection')
-	connection, client_address = irc.accept()
-	if connection is not None:
-		userList[usernr] = User(connection, client_address, "", "", "", "","")
-		usernr = usernr+1
-		l = 0
+	#try to bind socket to host and port
+	#control for errors: https://medium.com/python-pandemonium/python-socket-communication-e10b39225a4c
+	try:
+		irc.bind((h, p))
+	except socket.error as err:
+		print(err)
+		sys.exit(1)
+	 
+	#listen to whether a client connects   
+	irc.listen(1)
+	
+	#while a connection is not recieved, let user know we are waiing for a connection
+	while True:
+		print('\nWaiting for a connection')
+		connection, client_address = irc.accept()
+		if connection is not None:
+			userList[usernr] = User(connection, client_address, "", "", "", "","")
+			usernr = usernr+1
+			break
 
 #the main method runs as long as the server is running
 def main():
+	bind_new_socket(host, port)
 	#keeping server alive using infinite loop and receiving messages: https://acloudguru.com/blog/engineering/creating-an-irc-bot-with-python3
 	while True:
 		#how to decode messages: https://acloudguru.com/blog/engineering/creating-an-irc-bot-with-python3
-		msg = (connection.recv(2048).decode("UTF-8")).strip('nr')
+		msg = (userList[usernr-1].connection.recv(2048).decode("UTF-8")).strip('nr')
 		print(msg)
 		#what messages to respond to for bot to login: https://www.rfc-editor.org/rfc/rfc2812#section-3.1.2
 		#if the message from client includes "NICK", save their nickname and welcome them
@@ -74,13 +76,12 @@ def main():
 		#if the message from client includes "NICK", stop recieving messages and break the loop
 		elif msg.find("QUIT") != -1:
 			print("Not recieving messages")
+			#close the current connection
+			print("Closing current connection")
+			userList[usernr-1].connection.close()
 			break
-		#no other commands have been added so far
 		else:
 			print("unknown command")
-	#close the current connection
-	print("Closing current connection")
-	connection.close()
 
-main()	
+main()
    
