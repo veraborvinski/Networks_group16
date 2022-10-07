@@ -77,9 +77,9 @@ def main():
 			userList[usernr-1].realname = realname
 		#if the message from client includes "NICK", stop recieving messages and break the loop
 		elif msg.find("QUIT") != -1:
-			userList[usernr-1].connection.send(bytes("Not recieving messages", "UTF-8"))
+			print("Not recieving messages")
 			#close the current connection
-			userList[usernr-1].connection.send(bytes("Closing current connection", "UTF-8"))
+			print("Closing current connection")
 			userList[usernr-1].connection.close()
 			break
 		else:
