@@ -47,7 +47,7 @@ def main():
         #identify a message in the channel and respond
         if msg.find("PRIVMSG "+channel) != -1:
             user = msg.split('!',1)[0][1:]
-            respondChannel(msg, user, userList)
+            respond_channel(msg, user, userList)
         #identify whether someone has left the channel and update the user list
         elif msg.find("QUIT") != -1:
             user = msg.split('!',1)[0][1:]
@@ -69,7 +69,7 @@ def main():
         #identify private message to the bot and respond
         elif msg.find("PRIVMSG "+name) != -1:
             user = msg.split('!',1)[0][1:]
-            respondPrivate(user)
+            respond_private(user)
 """
 the respond_channel function responds to a message in a channel
 
@@ -83,7 +83,6 @@ def respond_channel(m, user, userList):
         irc.send(bytes("PRIVMSG "+ channel +" : Hello "+user+" "+str(datetime.datetime.now())+"\n", "UTF-8"))
     #if the message was !slap the bot slaps a random user in the channel with a bot
     elif "!slap" in m:
-        print("hello")
         irc.send(bytes("PRIVMSG "+ channel +" : *slaps "+str(random.choice(userList))+" with trout*\n", "UTF-8"))
 """
 the respond_private function responds to a user's private message
