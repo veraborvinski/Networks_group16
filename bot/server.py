@@ -19,26 +19,19 @@ class User:
 		self.realname = r
 
 class Channel:
-	def __init__(self, n, ul):
+	def __init__(self, n, ul = []):
 		self.name = n
 		self.userList = ul
 
 class Server:
-	def __init__(self, n, h, p, un, ul):
+	def __init__(self, n = "Server", h = "fc00:1337::17", p = 6667, un = 0, ul = []):
 		self.name = n
 		self.host = h
 		self.port = p
-		self.userNumber = un
+		self.usernr = un
 		self.userList = ul
-
-#defining global variables
-host = "fc00:1337::17"
-port = 6667
-usernr = 0
-userList = list(range(100))
    
-def bind_new_socket(h, p):
-	global usernr
+def bind_new_socket(server, h, p):
 	#how to set up server socket: https://medium.com/python-pandemonium/python-socket-communication-e10b39225a4c
 	irc = socket.socket(socket.AF_INET6, socket.SOCK_STREAM)
 
@@ -58,59 +51,64 @@ def bind_new_socket(h, p):
 		print('\nWaiting for a connection')
 		connection, client_address = irc.accept()
 		if connection is not None:
-			userList[usernr] = User(connection, client_address, "", "", "", "","")
-			usernr = usernr+1
+			server.userList[server.usernr] = User(connection, client_address, "", "", "", "","")
+			server.usernr = server.usernr+1
 			break
 
 #the main method runs as long as the server is running
 def main():
-	bind_new_socket(host, port)
+	main_server = Server()
+	bind_new_socket(main_server, main_server.host, main_server.port)
 	#keeping server alive using infinite loop and receiving messages: https://acloudguru.com/blog/engineering/creating-an-irc-bot-with-python3
-	while True:
+	x=True
+	while x:
 		#how to decode messages: https://acloudguru.com/blog/engineering/creating-an-irc-bot-with-python3
-		msg = (userList[usernr-1].connection.recv(2048).decode("UTF-8")).strip('nr')
-		print(msg)
+		try:
+			msg = (main_server.userList[main_server.usernr-1].connection.recv(2048).decode("UTF-8")).strip('nr')
+			process(msg, main_server)
+		except:
+			x=False
 		
-def process_msg(msg):
+def process_msg(msg, server):
         #what messages to respond to for bot to login: https://www.rfc-editor.org/rfc/rfc2812#section-3.1.2
 	#if the message from client includes "NICK", save their nickname and welcome them
 	if msg.find("NICK") != -1:
 		nickname = msg.split(" ",1)[1].strip("\n")
-		userList[usernr-1].nickname = nickname
+		server.userList[server.usernr-1].nickname = nickname
 		welcome()
 	#if the message from client includes "USER", save their user info
 	elif msg.find("USER") != -1:
 		username = msg.split(" ",4)[1]
-		userList[usernr-1].username = username
+		server.userList[server.usernr-1].username = username
 		hostname = msg.split(" ",4)[2]
-		userList[usernr-1].hostname = hostname
+		server.userList[server.usernr-1].hostname = hostname
 		servername = msg.split(" ",4)[3]
-		userList[usernr-1].servername = servername
+		server.userList[server.usernr-1].servername = servername
 		realname = msg.split(" ",4)[4].strip("\n")
-		userList[usernr-1].realname = realname
+		server.userList[server.usernr-1].realname = realname
 	#if the message from client includes "NICK", stop recieving messages and break the loop
 	elif msg.find("QUIT") != -1:
 		print("Not recieving messages")
-		close_connection()
-		break
+		close_connection(server)
 	elif msg.find("JOIN") != -1:
-                join_channel()
+                join_channel(msg, server.userList[server.usernr-1].nickname)
 	else:
-                send_error()
+                send_error(server)
 
 def welcome():
         userList[usernr-1].connection.send(bytes("Welcome "+userList[usernr-1].nickname, "UTF-8"))
 
-def close_connection():
+def close_connection(server):
         #close the current connection
 	print("Closing current connection")
-	userList[usernr-1].connection.close()
+	server.userList[usernr-1].connection.close()
 
-def send_error():
-        userList[usernr-1].connection.send(bytes("unknown command", "UTF-8"))
+def send_error(server):
+        server.userList[usernr-1].connection.send(bytes("unknown command", "UTF-8"))
 
-def join_channel():
-        print("blabla")
+def join_channel(msg, user):
+	channel = Channel(msg.split(' ',1)[1])
+	channel.userList.append(user)
 
 main()
    
