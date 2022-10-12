@@ -44,18 +44,24 @@ def main():
         print(msg)
         #given that the bot was able to connect, the user list is set to include the bot
         userList = [name]
+        process_msg(msg)
+        
+def process_msg(msg):
         #identify a message in the channel and respond
-        if msg.find("PRIVMSG "+channel) != -1:
+        #paramaters for private message: PRIVMSG command, target, text
+        if msg.find("PRIVMSG "+channel+" ") != -1:
             user = msg.split('!',1)[0][1:]
             respond_channel(msg, user, userList)
         #identify whether someone has left the channel and update the user list
+        #paramaters for private message: QUIT command, quit message
         elif msg.find("QUIT") != -1:
             user = msg.split('!',1)[0][1:]
             if user in userList: userList.remove(user)
             print("users in this channel: ", end="")
             print(*userList, sep = ", ")
         #identify whether someone has joined the channel and update the user list
-        elif msg.find("JOIN") != -1:
+        #paramaters for private message: JOIN command, channel
+        elif msg.find("JOIN "+channel) != -1:
             irc.send(bytes("NAMES "+channel+"\n", "UTF-8"))
             msg = (irc.recv(2048).decode("UTF-8")).strip('nr')
             userList.extend(msg.split(":",3)[2].strip().split(" "))
@@ -64,12 +70,15 @@ def main():
             print(*userList, sep = ", ")
         #identify a ping and reply with pong
         #this keeps the connection to the server alive
+        #paramaters for private message: PING command, server
         elif msg.find("PING") != -1:
             irc.send(bytes("PONG :", "UTF-8"))
         #identify private message to the bot and respond
-        elif msg.find("PRIVMSG "+name) != -1:
+        #paramaters for private message: PRIVMSG command, target, text
+        elif msg.find("PRIVMSG "+name+" ") != -1:
             user = msg.split('!',1)[0][1:]
             respond_private(user)
+
 """
 the respond_channel function responds to a message in a channel
 
