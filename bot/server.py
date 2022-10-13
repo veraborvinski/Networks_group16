@@ -30,6 +30,9 @@ class Server:
 		self.port = p
 		self.usernr = un
 		self.userList = ul
+	def add_user(self, user):
+        	self.userList.append(user)
+        	self.userList = list(set(self.userList))
    
 def bind_new_socket(server, h, p):
 	#how to set up server socket: https://medium.com/python-pandemonium/python-socket-communication-e10b39225a4c
@@ -51,7 +54,7 @@ def bind_new_socket(server, h, p):
 		print('\nWaiting for a connection')
 		connection, client_address = irc.accept()
 		if connection is not None:
-			server.userList[server.usernr] = User(connection, client_address, "", "", "", "","")
+			server.add_user(User(connection, client_address, "", "", "", "",""))
 			server.usernr = server.usernr+1
 			break
 
@@ -64,8 +67,9 @@ def main():
 	while x:
 		#how to decode messages: https://acloudguru.com/blog/engineering/creating-an-irc-bot-with-python3
 		try:
-			msg = (main_server.userList[main_server.usernr-1].connection.recv(2048).decode("UTF-8")).strip('nr')
-			process(msg, main_server)
+			msg = (main_server.userList[0].connection.recv(2048).decode("UTF-8")).strip('nr')
+			print("hi")
+			process_msg(msg, main_server)
 		except:
 			x=False
 		
@@ -74,8 +78,8 @@ def process_msg(msg, server):
 	#if the message from client includes "NICK", save their nickname and welcome them
 	if msg.find("NICK") != -1:
 		nickname = msg.split(" ",1)[1].strip("\n")
-		server.userList[server.usernr-1].nickname = nickname
-		welcome()
+		server.userlist[0].nickname = nickname
+		welcome(server)
 	#if the message from client includes "USER", save their user info
 	elif msg.find("USER") != -1:
 		username = msg.split(" ",4)[1]
@@ -95,8 +99,9 @@ def process_msg(msg, server):
 	else:
                 send_error(server)
 
-def welcome():
-        userList[usernr-1].connection.send(bytes("Welcome "+userList[usernr-1].nickname, "UTF-8"))
+def welcome(server):
+	print("hi")
+	server.userList[usernr-1].connection.send(bytes("Welcome "+server.userList[usernr-1].nickname, "UTF-8"))
 
 def close_connection(server):
         #close the current connection
