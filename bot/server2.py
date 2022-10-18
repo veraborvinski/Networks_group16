@@ -53,29 +53,27 @@ class Server:
 				events = sel.select(timeout=None)
 				for key, mask in events:
 					if key.data is None:
-						accept_wrapper(key.fileobj)
+						sock = key.fileobj
+						conn, addr = sock.accept()  
+						# Should be ready to read
+						conn.setblocking(False)
+						data = types.SimpleNamespace(addr=addr, inb=b"", outb=b"")
+						sel.register(conn, selectors.EVENT_READ, data=data)
 					else: 
 						service_connection(key, mask)
 		except KeyboardInterrupt:
-			print(error)
+			print("error")
 		finally:
 			sel.close()
-   
-
-def accept_wrapper(sock):
-	conn, addr = sock.accept()  # Should be ready to read
-	print(f"Accepted connection from {addr}")
-	conn.setblocking(False)
-	data = types.SimpleNamespace(addr=addr, inb=b"", outb=b"")
-	sel.register(conn, events.EVENT_READ, data=data)
 
 def service_connection(key, mask):
 	sock = key.fileobj
 	data = key.data
 	if mask & selectors.EVENT_READ:
-		recv_data = sock.recv(1024)  # Should be ready to read
-		if recv_data:
-			data.outb += recv_data
+		msg = (sock.recv(4096).decode("UTF-8")).strip('nr')
+		if msg:
+			print("hi")
+			process_msg(msg)
 		else:
 			print(f"Closing connection to {data.addr}")
 			sel.unregister(sock)
@@ -83,8 +81,8 @@ def service_connection(key, mask):
 
 def process_msg(msg):
 	print(msg)
-	cmd = msg.split(" ",1)[0]
-	argument = msg.split(" ",1)[1].strip("\n")
+	cmd = msg.split(" ")[0]
+	argument = msg.split(" ")[1].strip("\n")
 	if cmd == "NICK":
 		process_nick(argument)
 	elif cmd == "USER":
@@ -92,11 +90,10 @@ def process_msg(msg):
 	elif cmd == "JOIN":
 		process_join(argument)
 	else:
-		print(error)
+		print("error")
 
 def process_nick(arg):
 	user = User(arg)
-	server.userList.add(user)
 	print(user.name)
 
 def process_user(arg):
@@ -104,10 +101,12 @@ def process_user(arg):
 
 def process_join(arg):
 	channel = Channel(arg) 
+	channel.userlist.add()
 	
 #the main method runs as long as the server is running
 def main():
 	server = Server("server")
+	server.start()
         
 main()
    
