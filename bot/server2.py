@@ -126,6 +126,15 @@ def ircsend(cmd, args):
 def send_ping(address)
 	ircsend("PING", address)
 	
+def  RPL_WELCOME():
+              ircsend("001 Welcome to the Internet Relay Network <nick>!<user>@<host>")
+	
+def RPL_YOURHOST():
+              ircsend("002 Your host is server, running version 1")
+ 
+def RPL_CREATED():
+              ircsend("003 This server was created 21/10-22")
+	
 #the main method runs as long as the server is running
 def main():	
 	server.start()
