@@ -112,6 +112,9 @@ def process_nick(arg):
 
 def process_user(arg):
 	arg.split(" ", 3)
+	RPL_WELCOME()
+	RPL_YOURHOST()
+	RPL_CREATED()
 
 def process_join(arg):
 	channel = Channel(arg) 
@@ -126,14 +129,14 @@ def ircsend(cmd, args):
 def send_ping(address)
 	ircsend("PING", address)
 	
-def  RPL_WELCOME():
-              ircsend("001 Welcome to the Internet Relay Network <nick>!<user>@<host>")
+def RPL_WELCOME():
+              ircsend("","001 Welcome to the Internet Relay Network <nick>!<user>@<host>")
 	
 def RPL_YOURHOST():
-              ircsend("002 Your host is server, running version 1")
+              ircsend("","002 Your host is server, running version 1")
  
 def RPL_CREATED():
-              ircsend("003 This server was created 21/10-22")
+              ircsend("","003 This server was created 21/10-22")
 	
 #the main method runs as long as the server is running
 def main():	
