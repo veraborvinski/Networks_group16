@@ -22,14 +22,24 @@ class User:
 		self.name = n
 	
 class Channel:
-	def __init__(self, n, ul = set()):
+	def __init__(self, n, us = set()):
 		self.name = n
-		self.userList = ul
+		self.user_set = us
 
 class Server:
-	def __init__(self, n, ul = set()):
+	def __init__(self, n, us = set()):
 		self.name = n
-		self.userList = ul
+		self.user_set = us
+	
+	def add_user(self, nick):
+		og_len = len(user_set)
+		user_set.add(User(nick))
+		if oglen != len(user_set):
+			return -1
+		
+	def close_connection():
+		sel.unregister(sock)
+            	sock.close()
 		
 	def start(self):
 		#try to bind socket to host and port
@@ -75,9 +85,9 @@ def service_connection(key, mask):
 			print("hi")
 			process_msg(msg)
 		else:
-			print(f"Closing connection to {data.addr}")
-			sel.unregister(sock)
-			sock.close()
+			send_ping(data.addr)
+			if process_msg != 1:
+				server.close_connection()
 
 def process_msg(msg):
 	print(msg)
@@ -89,24 +99,37 @@ def process_msg(msg):
 		process_user(argument)
 	elif cmd == "JOIN":
 		process_join(argument)
+	elif cmd == "QUIT":
+		process_quit()
+	elif cmd == "PONG"
+		return 1
 	else:
 		print("error")
 
 def process_nick(arg):
-	user = User(arg)
-	print(user.name)
+	while server.add_user(arg) == -1:
+		arg = arg + "_"
 
 def process_user(arg):
-	print("hi")
+	arg.split(" ", 3)
 
 def process_join(arg):
 	channel = Channel(arg) 
 	channel.userlist.add()
+
+def process_quit():
+	server.close_connection()
+	
+def ircsend(cmd, args):
+    irc.send(bytes(cmd + " " + args + "\r\n", "UTF-8"))
+
+def send_ping(address)
+	ircsend("PING", address)
 	
 #the main method runs as long as the server is running
-def main():
-	server = Server("server")
+def main():	
 	server.start()
-        
+	
+server = Server("server")      
 main()
    
