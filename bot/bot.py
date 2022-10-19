@@ -130,6 +130,8 @@ the process_msg function takes a message and identifies the appropriate response
 """
 def process_msg(msg):
         #identify a message in the channel and respond
+        [prefix, cmd, arg] = msg.split(" ", 2)
+        arg.strip(\n)
        #paramaters for private message: PRIVMSG command, target, text
         if msg.find("PRIVMSG "+channel.get_name()+" :!hello") != -1:
             user = msg.split('!',1)[0][1:]
