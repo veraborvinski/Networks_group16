@@ -34,9 +34,9 @@ class Channel:
 		self.user_set = us
 
 class Server:
-	def __init__(self, n, ud = {}):
+	def __init__(self, n):
 		self.name = n
-		self.user_dict = ud
+		self.user_dict: Dict[Socket, User] = {}
 	
 	def add_user(self, s):
 		self.user_dict[s].append(User("", "", "", sock = s))
@@ -125,8 +125,8 @@ def process_user(arg, user):
 	user.username = user_details[0]
 	user.realname = user_details[3]
 	RPL_WELCOME(user)
-	RPL_YOURHOST()
-	RPL_CREATED()
+	RPL_YOURHOST(user)
+	RPL_CREATED(user)
 
 def process_join(arg):
 	channel = Channel(arg) 
@@ -140,16 +140,16 @@ def send_ping(address):
 	
 def RPL_WELCOME(user):
 	msg = "001 Welcome to the Internet Relay Network " + user.name + "!" + user.username + "@" + user.host
-	ircsend("", msg)
+	ircsend("", msg, user)
 	
-def RPL_YOURHOST():
-	ircsend("","002 Your host is server, running version 1")
+def RPL_YOURHOST(user):
+	ircsend("","002 Your host is server, running version 1", user)
  
 def RPL_CREATED():
-	ircsend("","003 This server was created 21/10-22")
+	ircsend("","003 This server was created 21/10-22", user)
 	
-def ircsend(cmd, args):
-	irc.send(bytes(cmd + " " + args + "\r\n", "UTF-8"))
+def ircsend(cmd, args, user):
+	user.sock.send(bytes(cmd + " " + args + "\r\n", "UTF-8"))
 	
 #the main method runs as long as the server is running
 def main():	
