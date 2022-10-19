@@ -7,6 +7,12 @@ import datetime
 import random
 import selectors
 import types
+import time
+
+#https://linuxpip.org/broken-pipe-python-error/#What_causes_Errno_32_Broken_pipe_in_Python
+from signal import signal, SIGPIPE, SIG_DFL 
+#Ignore SIG_PIPE and don't throw exceptions on it... (http://docs.python.org/library/signal.html)
+#signal(SIGPIPE,SIG_DFL) 
 
 sel = selectors.DefaultSelector()
 
@@ -19,12 +25,13 @@ user_count = 0
 
 #class used to hold user objects
 class User:
-	def __init__(self, n, u, r, s = "server", soc = irc, h = host):
+	def __init__(self, n, u, r, s = "server", soc = None, h = host):
 		self.name = n
 		self.server = s
-		self. username = u
+		self.username = u
 		self.host = h
 		self.realname = r
+		self.socket = soc
 	
 class Channel:
 	def __init__(self, n, us = set()):
@@ -32,19 +39,20 @@ class Channel:
 		self.user_set = us
 
 class Server:
-	def __init__(self, n, us = set()):
+	def __init__(self, n, ul = list()):
 		self.name = n
-		self.user_set = us
+		self.user_list = ul
 	
 	def add_user(self, nick):
-		og_len = len(self.user_set)
-		self.user_set.add(User(nick, "", ""))
-		if og_len != len(self.user_set):
+		og_len = len(self.user_list)
+		self.user_list.append(User(nick, "", ""))
+		list(set(self.user_list))
+		if og_len == len(self.user_list):
 			return -1
 		
-	def close_connection():
-		sel.unregister(sock)
-		sock.close()
+	def close_connection(self):
+		sel.unregister(self.socket)
+		self.sock.close()
 		
 	def start(self):
 		#try to bind socket to host and port
@@ -58,53 +66,51 @@ class Server:
 		#listen to whether a client connects   
 		irc.listen(1)
 
-		irc.setblocking(False)
+		#irc.setblocking(False)
 		sel.register(irc, selectors.EVENT_READ, data=None)
 		print('\nWaiting for a connection')
-
-		try:
-			#while a connection is not recieved, let user know we are waiing for a connection
-			while True:
-				events = sel.select(timeout=None)
-				for key, mask in events:
-					if key.data is None:
-						sock = key.fileobj
-						conn, addr = sock.accept()  
-						# Should be ready to read
-						conn.setblocking(False)
-						data = types.SimpleNamespace(addr=addr, inb=b"", outb=b"")
-						sel.register(conn, selectors.EVENT_READ, data=data)
-					else: 
-						service_connection(key, mask)
-		except KeyboardInterrupt:
-			print("error")
-		finally:
-			sock.close()
+	
+		#while a connection is not recieved, let user know we are waiing for a connection
+		while True:
+			time.sleep(1)
+			events = sel.select(timeout=None)
+			for key, mask in events:
+				if key.data is None and key.fileobj == irc:
+					sock = key.fileobj
+					conn, addr = sock.accept()  
+					# Should be ready to read
+					conn.setblocking(False)
+					data = types.SimpleNamespace(addr=addr, inb=b"", outb=b"")
+					sel.register(conn, selectors.EVENT_READ, data=data)
+					# create a new User object with empty name/user/realname and the socket
+					# add the user to dictionary of users of the server with key being the socket
+				else: 
+					sock = key.fileobj
+					# retrieve the User object from server dictionary of users using the socket
+					service_connection(key, mask, user)
+					print("plop out service")
 
 def service_connection(key, mask):
 	sock = key.fileobj
 	data = key.data
 	if mask & selectors.EVENT_READ:
-		msg = (sock.recv(4096).decode("UTF-8")).strip('nr')
+		msg = (sock.recv(4096).decode("UTF-8"))
 		if msg:
 			print("hi")
 			process_msg(msg)
-		else:
-			send_ping(data.addr)
-			if process_msg != 1:
-				server.close_connection()
+		#else:
+			#send_ping(data.addr)
+			#if process_msg != 1:
+				#server.close_connection()
 
 def process_msg(msg):
 	msgs = msg.split("\r\n")
 	i = 0
 	while i < len(msgs):
 		print(msgs[i])
-		currmsg = msgs[i]
+		currmsg = msgs[i].strip('nr')
 		cmd = currmsg.split(" ", 1)[0]
-		try: 
-			argument = currmsg.split(" ", 1)[1].strip("\n")
-		finally:
-			i = i+1
+		argument = currmsg.split(" ", 1)[1]
 		if cmd == "NICK":
 			process_nick(argument)
 		elif cmd == "USER":
@@ -122,13 +128,15 @@ def process_msg(msg):
 def process_nick(arg):
 	while server.add_user(arg) == -1:
 		arg = arg + "_"
-	user_count = len(server.user_set)
+	user_count = len(server.user_list)
 	
 def process_user(arg):
-	user_details = arg.split(" ", 3)
-	server.user_set[user_count-1].user = user_details[0]
-	server.user_set[user_count-1].user = user_details[3]
-	RPL_WELCOME(ser_details[0])
+	print(arg)
+	user_details = arg.split(" ")
+	x = find_user(user_details[0], "name")
+	x.username = user_details[0]
+	x.realname = user_details[3]
+	RPL_WELCOME(user_details[0])
 	RPL_YOURHOST()
 	RPL_CREATED()
 
@@ -138,23 +146,33 @@ def process_join(arg):
 
 def process_quit():
 	server.close_connection()
-	
-def ircsend(cmd, args):
-    irc.send(bytes(cmd + " " + args + "\r\n", "UTF-8"))
 
 def send_ping(address):
 	ircsend("PING", address)
 	
 def RPL_WELCOME(user):
-	#https://stackoverflow.com/questions/7125467/find-object-in-list-that-has-attribute-equal-to-some-value-that-meets-any-condi
-	next((x for x in server.user_set if x.username == user), None)
-	ircsend("","001 Welcome to the Internet Relay Network %s!%s@%s", x.name, x.user, x.host)
+	x = find_user(user, "username")
+	msg = "001 Welcome to the Internet Relay Network " + x.name + "!" + x.username + "@" + x.host
+	ircsend("", msg)
 	
 def RPL_YOURHOST():
 	ircsend("","002 Your host is server, running version 1")
  
 def RPL_CREATED():
 	ircsend("","003 This server was created 21/10-22")
+	
+def ircsend(cmd, args):
+	irc.send(bytes(cmd + " " + args + "\r\n", "UTF-8"))
+	
+def find_user(arg, par):
+	#https://stackoverflow.com/questions/7125467/find-object-in-list-that-has-attribute-equal-to-some-value-that-meets-any-condi
+	for x in server.user_list:
+		if getattr(x, par)  == arg:
+			break
+	else:
+		x = None
+	    
+	return x
 	
 #the main method runs as long as the server is running
 def main():	
