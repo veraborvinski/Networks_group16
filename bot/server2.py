@@ -9,11 +9,6 @@ import selectors
 import types
 import time
 
-#https://linuxpip.org/broken-pipe-python-error/#What_causes_Errno_32_Broken_pipe_in_Python
-from signal import signal, SIGPIPE, SIG_DFL 
-#Ignore SIG_PIPE and don't throw exceptions on it... (http://docs.python.org/library/signal.html)
-#signal(SIGPIPE,SIG_DFL) 
-
 sel = selectors.DefaultSelector()
 
 irc = socket.socket(socket.AF_INET6, socket.SOCK_STREAM)
@@ -25,13 +20,13 @@ user_count = 0
 
 #class used to hold user objects
 class User:
-	def __init__(self, n, u, r, s = "server", soc = None, h = host):
+	def __init__(self, n, u, r, s = "server", sock = None, h = host):
 		self.name = n
 		self.server = s
 		self.username = u
 		self.host = h
 		self.realname = r
-		self.socket = soc
+		self.socket = sock
 	
 class Channel:
 	def __init__(self, n, us = set()):
@@ -39,20 +34,16 @@ class Channel:
 		self.user_set = us
 
 class Server:
-	def __init__(self, n, ul = list()):
+	def __init__(self, n, ud = {}):
 		self.name = n
-		self.user_list = ul
+		self.user_dict = ud
 	
-	def add_user(self, nick):
-		og_len = len(self.user_list)
-		self.user_list.append(User(nick, "", ""))
-		list(set(self.user_list))
-		if og_len == len(self.user_list):
-			return -1
+	def add_user(self, s):
+		self.user_dict[s].append(User("", "", "", sock = s))
 		
 	def close_connection(self):
-		sel.unregister(self.socket)
-		self.sock.close()
+		sel.unregister(sock)
+		sock.close()
 		
 	def start(self):
 		#try to bind socket to host and port
@@ -83,21 +74,22 @@ class Server:
 					data = types.SimpleNamespace(addr=addr, inb=b"", outb=b"")
 					sel.register(conn, selectors.EVENT_READ, data=data)
 					# create a new User object with empty name/user/realname and the socket
-					# add the user to dictionary of users of the server with key being the socket
+					self.add_user(sock)				
 				else: 
 					sock = key.fileobj
 					# retrieve the User object from server dictionary of users using the socket
+					user = user_dict[sock]
 					service_connection(key, mask, user)
 					print("plop out service")
 
-def service_connection(key, mask):
+def service_connection(key, mask, user):
 	sock = key.fileobj
 	data = key.data
 	if mask & selectors.EVENT_READ:
-		msg = (sock.recv(4096).decode("UTF-8"))
+		msg = (sock.recv(1024).decode("UTF-8"))
 		if msg:
 			print("hi")
-			process_msg(msg)
+			process_msg(msg, user)
 		#else:
 			#send_ping(data.addr)
 			#if process_msg != 1:
@@ -112,9 +104,9 @@ def process_msg(msg):
 		cmd = currmsg.split(" ", 1)[0]
 		argument = currmsg.split(" ", 1)[1]
 		if cmd == "NICK":
-			process_nick(argument)
+			process_nick(argument, user)
 		elif cmd == "USER":
-			process_user(argument)
+			process_user(argument, user)
 		elif cmd == "JOIN":
 			process_join(argument)
 		elif cmd == "QUIT":
@@ -125,18 +117,14 @@ def process_msg(msg):
 			print("error")
 		i = i+1
 
-def process_nick(arg):
-	while server.add_user(arg) == -1:
-		arg = arg + "_"
-	user_count = len(server.user_list)
+def process_nick(arg, user):
+	user.name = arg
 	
-def process_user(arg):
-	print(arg)
+def process_user(arg, user):
 	user_details = arg.split(" ")
-	x = find_user(user_details[0], "name")
-	x.username = user_details[0]
-	x.realname = user_details[3]
-	RPL_WELCOME(user_details[0])
+	user.username = user_details[0]
+	user.realname = user_details[3]
+	RPL_WELCOME(user)
 	RPL_YOURHOST()
 	RPL_CREATED()
 
@@ -151,8 +139,7 @@ def send_ping(address):
 	ircsend("PING", address)
 	
 def RPL_WELCOME(user):
-	x = find_user(user, "username")
-	msg = "001 Welcome to the Internet Relay Network " + x.name + "!" + x.username + "@" + x.host
+	msg = "001 Welcome to the Internet Relay Network " + user.name + "!" + user.username + "@" + user.host
 	ircsend("", msg)
 	
 def RPL_YOURHOST():
@@ -163,16 +150,6 @@ def RPL_CREATED():
 	
 def ircsend(cmd, args):
 	irc.send(bytes(cmd + " " + args + "\r\n", "UTF-8"))
-	
-def find_user(arg, par):
-	#https://stackoverflow.com/questions/7125467/find-object-in-list-that-has-attribute-equal-to-some-value-that-meets-any-condi
-	for x in server.user_list:
-		if getattr(x, par)  == arg:
-			break
-	else:
-		x = None
-	    
-	return x
 	
 #the main method runs as long as the server is running
 def main():	
