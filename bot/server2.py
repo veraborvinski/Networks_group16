@@ -39,7 +39,7 @@ class Server:
 		self.user_dict: Dict[Socket, User] = {}
 	
 	def add_user(self, s):
-		self.user_dict[s].append(User("", "", "", sock = s))
+		self.user_dict[s] = (User("", "", "", sock = s))
 		
 	def close_connection(self):
 		sel.unregister(sock)
@@ -113,6 +113,8 @@ def process_msg(msg):
 			process_quit()
 		elif cmd == "PONG":
 			return 1
+		elif cmd == "PRIVMSG":
+			forward_msg(arg, user)
 		else:
 			print("error")
 		i = i+1
@@ -147,6 +149,11 @@ def RPL_YOURHOST(user):
  
 def RPL_CREATED():
 	ircsend("","003 This server was created 21/10-22", user)
+	
+def forward_msg(arg, sender):
+	reciever = arg.split(" ", 1)[0]
+	#figure out how to get recievers socket
+	ircsend("PRIVMSG", arg, reciever)
 	
 def ircsend(cmd, args, user):
 	user.sock.send(bytes(cmd + " " + args + "\r\n", "UTF-8"))
