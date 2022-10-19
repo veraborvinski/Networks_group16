@@ -29,14 +29,15 @@ class User:
 		self.socket = sock
 	
 class Channel:
-	def __init__(self, n, us = set()):
+	def __init__(self, n):
 		self.name = n
-		self.user_set = us
+		self.user_dict: Dict[Socket, User] = {}
 
 class Server:
 	def __init__(self, n):
 		self.name = n
 		self.user_dict: Dict[Socket, User] = {}
+		self.channel_dict = {}
 	
 	def add_user(self, s):
 		self.user_dict[s] = (User("", "", "", sock = s))
@@ -108,7 +109,7 @@ def process_msg(msg):
 		elif cmd == "USER":
 			process_user(argument, user)
 		elif cmd == "JOIN":
-			process_join(argument)
+			process_join(argument, user)
 		elif cmd == "QUIT":
 			process_quit()
 		elif cmd == "PONG":
@@ -130,9 +131,11 @@ def process_user(arg, user):
 	RPL_YOURHOST(user)
 	RPL_CREATED(user)
 
-def process_join(arg):
+def process_join(arg, user):
 	channel = Channel(arg) 
-	channel.userlist.add()
+	channel.user_dict[user.sock] = user
+	if channel not in server.channel_dict:
+		server.channel_dict[arg] = channel
 
 def process_quit():
 	server.close_connection()
@@ -152,8 +155,16 @@ def RPL_CREATED():
 	
 def forward_msg(arg, sender):
 	reciever = arg.split(" ", 1)[0]
+	msg = arg.split(" ", 1)[1].strip("nr")
 	#figure out how to get recievers socket
-	ircsend("PRIVMSG", arg, reciever)
+	if reciever[0] == "#":
+		channel = server.channel_dict[receiver]
+		for key, value in channel.user_dict.items():
+			ircsend("PRIVMSG", msg, key)
+	else:
+		for key, value in server.user_dict.items():
+			if value.username = reciever:
+				ircsend("PRIVMSG", arg, key)
 	
 def ircsend(cmd, args, user):
 	user.sock.send(bytes(cmd + " " + args + "\r\n", "UTF-8"))
