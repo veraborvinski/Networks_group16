@@ -15,11 +15,16 @@ irc = socket.socket(socket.AF_INET6, socket.SOCK_STREAM)
 #defining global variables
 host = "fc00:1337::17"
 port = 6667
+user_count = 0
 
 #class used to hold user objects
 class User:
-	def __init__(self, n, s = "server", soc = irc):
+	def __init__(self, n, u, r, s = "server", soc = irc, h = host):
 		self.name = n
+		self.server = s
+		self. username = u
+		self.host = h
+		self.realname = r
 	
 class Channel:
 	def __init__(self, n, us = set()):
@@ -32,14 +37,14 @@ class Server:
 		self.user_set = us
 	
 	def add_user(self, nick):
-		og_len = len(user_set)
-		user_set.add(User(nick))
-		if oglen != len(user_set):
+		og_len = len(self.user_set)
+		self.user_set.add(User(nick, "", ""))
+		if og_len != len(self.user_set):
 			return -1
 		
 	def close_connection():
 		sel.unregister(sock)
-            	sock.close()
+		sock.close()
 		
 	def start(self):
 		#try to bind socket to host and port
@@ -74,7 +79,7 @@ class Server:
 		except KeyboardInterrupt:
 			print("error")
 		finally:
-			sel.close()
+			sock.close()
 
 def service_connection(key, mask):
 	sock = key.fileobj
@@ -90,29 +95,40 @@ def service_connection(key, mask):
 				server.close_connection()
 
 def process_msg(msg):
-	print(msg)
-	cmd = msg.split(" ")[0]
-	argument = msg.split(" ")[1].strip("\n")
-	if cmd == "NICK":
-		process_nick(argument)
-	elif cmd == "USER":
-		process_user(argument)
-	elif cmd == "JOIN":
-		process_join(argument)
-	elif cmd == "QUIT":
-		process_quit()
-	elif cmd == "PONG"
-		return 1
-	else:
-		print("error")
+	msgs = msg.split("\r\n")
+	i = 0
+	while i < len(msgs):
+		print(msgs[i])
+		currmsg = msgs[i]
+		cmd = currmsg.split(" ", 1)[0]
+		try: 
+			argument = currmsg.split(" ", 1)[1].strip("\n")
+		finally:
+			i = i+1
+		if cmd == "NICK":
+			process_nick(argument)
+		elif cmd == "USER":
+			process_user(argument)
+		elif cmd == "JOIN":
+			process_join(argument)
+		elif cmd == "QUIT":
+			process_quit()
+		elif cmd == "PONG":
+			return 1
+		else:
+			print("error")
+		i = i+1
 
 def process_nick(arg):
 	while server.add_user(arg) == -1:
 		arg = arg + "_"
-
+	user_count = len(server.user_set)
+	
 def process_user(arg):
-	arg.split(" ", 3)
-	RPL_WELCOME()
+	user_details = arg.split(" ", 3)
+	server.user_set[user_count-1].user = user_details[0]
+	server.user_set[user_count-1].user = user_details[3]
+	RPL_WELCOME(ser_details[0])
 	RPL_YOURHOST()
 	RPL_CREATED()
 
@@ -126,17 +142,19 @@ def process_quit():
 def ircsend(cmd, args):
     irc.send(bytes(cmd + " " + args + "\r\n", "UTF-8"))
 
-def send_ping(address)
+def send_ping(address):
 	ircsend("PING", address)
 	
-def RPL_WELCOME():
-              ircsend("","001 Welcome to the Internet Relay Network <nick>!<user>@<host>")
+def RPL_WELCOME(user):
+	#https://stackoverflow.com/questions/7125467/find-object-in-list-that-has-attribute-equal-to-some-value-that-meets-any-condi
+	next((x for x in server.user_set if x.username == user), None)
+	ircsend("","001 Welcome to the Internet Relay Network %s!%s@%s", x.name, x.user, x.host)
 	
 def RPL_YOURHOST():
-              ircsend("","002 Your host is server, running version 1")
+	ircsend("","002 Your host is server, running version 1")
  
 def RPL_CREATED():
-              ircsend("","003 This server was created 21/10-22")
+	ircsend("","003 This server was created 21/10-22")
 	
 #the main method runs as long as the server is running
 def main():	
@@ -144,4 +162,3 @@ def main():
 	
 server = Server("server")      
 main()
-   
