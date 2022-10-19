@@ -133,32 +133,32 @@ def process_msg(msg):
         [prefix, cmd, arg] = msg.split(" ", 2)
         arg.strip(\n)
        #paramaters for private message: PRIVMSG command, target, text
-        if msg.find("PRIVMSG "+channel.get_name()+" :!hello") != -1:
-            user = msg.split('!',1)[0][1:]
+        if cmd == "PRIVMSG " and arg == channel.get_name() + " :!hello":
+            user = prefix.split('!',1)[0][1:]
             respond_hello(channel.get_name(), user)
-        elif msg.find("PRIVMSG "+channel.get_name()+" :!slap") != -1:
+        elif cmd == "PRIVMSG " and arg == channel.get_name()+" :!slap":
             respond_slap(channel.get_name())
         #identify whether someone has left the channel and update the user list
         #paramaters for private message: QUIT command, quit message
-        elif msg.find(" QUIT :") != -1:
-            user = msg.split('!',1)[0][1:]
+        elif cmd == "QUIT":
+            user = prefix.split('!',1)[0][1:]
             channel.del_user(user)
             print("users in this channel: ", end="")
             print(*channel.get_userList(), sep = ", ")
         #identify whether someone has joined the channel and update the user list
         #paramaters for private message: JOIN command, channel
-        elif msg.find(" JOIN "+channel.get_name()) != -1:           
+        elif cmd == " JOIN " and arg == channel.get_name():           
             channel.add_users(send_names(channel.get_name()))
             print("users in this channel: ", end="")
             print(*channel.get_userList(), sep = ", ")
         #identify a ping and reply with pong
         #this keeps the connection to the server alive
         #paramaters for private message: PING command, server
-        elif msg.find("PING :") != -1:
+        elif cmd == "PING":
             send_pong()
         #identify private message to the bot and respond
         #paramaters for private message: PRIVMSG command, target, text
-        elif msg.find("PRIVMSG "+name+" :") != -1:
+        elif cmd == "PRIVMSG" and arg.find(name+" :") != -1:
             user = msg.split('!',1)[0][1:]
             respond_user(user)
 
