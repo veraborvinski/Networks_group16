@@ -27,7 +27,7 @@ class User:
 		self.host = h
 		self.realname = r
 		self.socket = sock
-		self.mask = self.name + "!" + self.user + "@" + self.host
+		self.mask = self.name + "!" + self.username + "@" + self.host
 	
 class Channel:
 	def __init__(self, n):
@@ -43,9 +43,9 @@ class Server:
 	def add_user(self, s):
 		self.user_dict[s] = (User("", "", "", sock = s))
 		
-	def close_connection(self):
-		sel.unregister(sock)
-		sock.close()
+	def close_connection(self, user):
+		sel.unregister(user.socket)
+		user.socket.close()
 		
 	def start(self):
 		#try to bind socket to host and port
@@ -68,7 +68,7 @@ class Server:
 			time.sleep(1)
 			events = sel.select(timeout=None)
 			for key, mask in events:
-				if key.data is None and key.fileobj == irc:
+				if key.data is None: #and key.fileobj != irc:
 					sock = key.fileobj
 					conn, addr = sock.accept()  
 					# Should be ready to read
@@ -76,11 +76,11 @@ class Server:
 					data = types.SimpleNamespace(addr=addr, inb=b"", outb=b"")
 					sel.register(conn, selectors.EVENT_READ, data=data)
 					# create a new User object with empty name/user/realname and the socket
-					self.add_user(sock)				
+					self.add_user(sock)	
+					user = self.user_dict[sock]			
 				else: 
 					sock = key.fileobj
 					# retrieve the User object from server dictionary of users using the socket
-					user = user_dict[sock]
 					service_connection(key, mask, user)
 					print("plop out service")
 
@@ -92,12 +92,12 @@ def service_connection(key, mask, user):
 		if msg:
 			print("hi")
 			process_msg(msg, user)
-		#else:
-			#send_ping(data.addr)
-			#if process_msg != 1:
-				#server.close_connection()
+		else:
+			send_ping(data.addr)
+			if process_msg != 1:
+				server.close_connection(user)
 
-def process_msg(msg):
+def process_msg(msg, user):
 	msgs = msg.split("\r\n")
 	i = 0
 	while i < len(msgs):
@@ -134,7 +134,7 @@ def process_user(arg, user):
 
 def process_join(arg, user):
 	channel = Channel(arg) 
-	channel.user_dict[user.sock] = user
+	channel.user_dict[user.socket] = user
 	if channel not in server.channel_dict:
 		server.channel_dict[arg] = channel
 
@@ -161,14 +161,14 @@ def forward_msg(arg, sender):
 	if reciever[0] == "#":
 		channel = server.channel_dict[receiver]
 		for key, value in channel.user_dict.items():
-			ircsend("PRIVMSG", msg, key)
+			ircsend("PRIVMSG", msg, value)
 	else:
 		for key, value in server.user_dict.items():
-			if value.username = reciever:
-				ircsend("PRIVMSG", arg, key)
+			if value.username == reciever:
+				ircsend("PRIVMSG", arg, value)
 	
 def ircsend(cmd, args, user):
-	user.sock.send(bytes(user.mask + " " + cmd + " " + args + "\r\n", "UTF-8"))
+	user.socket.send(bytes(user.mask + " " + cmd + " " + args + "\r\n", "UTF-8"))
 	
 #the main method runs as long as the server is running
 def main():	
