@@ -125,6 +125,8 @@ def process_msg(msg, user):
 			forward_msg(argument, user)
 		elif cmd == "NAMES":
 			process_names(argument, user)
+		elif cmd == "WHO":
+			process_who(argument, user);
 		else:
 			print("error")
 		i = i+1
@@ -148,18 +150,23 @@ def process_user(arg, user):
 	RPL_CREATED(user)
 
 def process_join(arg, user):
-	channel = Channel(arg) 
-	channel.user_dict[user.socket] = user
-	if channel not in server.channel_dict:
+	if arg not in server.channel_dict:
+		channel = Channel(arg) 
 		server.channel_dict[arg] = channel
-	user.socket.send(bytes(":" + user.name + " JOIN " + arg + "\r\n", "UTF-8"))
-	RPL_NAMREPLY(channel, user)
-	RPL_ENDOFNAMES(channel, user)
+	else:
+		channel = server.channel_dict[arg]
+	channel.user_dict[user.socket] = user
+	for key, value in server.channel_dict[arg].user_dict.items():
+		value.socket.send(bytes(":" + value.name + " JOIN " + arg + "\r\n", "UTF-8"))
+	ircsend("PRIVMSG " + arg, "welcome", user)
 	
 def process_names(arg, user):
 	RPL_NAMREPLY(arg, user)
 	RPL_ENDOFNAMES(arg, user)
 	
+def process_who(arg, user):
+	if arg[0] == "#" or arg == "":
+		process_names(arg, user)
 
 def process_quit(user):
 	server.close_connection(user)
@@ -185,10 +192,10 @@ def RPL_NAMREPLY(channel, user):
 	else:
 		for key, value in server.user_dict.items():
 			user_list.append(value.name)
-	ircsend("", "353" + channel + ":" + str(user_list), user)
+	user.socket.send(bytes(":" + server.name + " 353 " + user.name + " = " + channel + " :@" + str(user_list) + "\r\n", "UTF-8"))
 	
 def RPL_ENDOFNAMES(channel, user):
-	ircsend("", "366" + channel + " :End of /NAMES list", user)
+	user.socket.send(bytes(":" + server.name + " 366 " + user.name + " "+ channel + " :End of /NAMES list" + "\r\n", "UTF-8"))
 	
 def forward_msg(arg, sender):
 	reciever = arg.split(" ", 1)[0]
@@ -197,7 +204,7 @@ def forward_msg(arg, sender):
 	if reciever[0] == "#":
 		channel = server.channel_dict[receiver]
 		for key, value in channel.user_dict.items():
-			ircsend("PRIVMSG", msg, value)
+			ircsend("PRIVMSG", arg, value)
 	else:
 		for key, value in server.user_dict.items():
 			if value.username == reciever:
