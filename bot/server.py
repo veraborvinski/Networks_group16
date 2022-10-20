@@ -18,14 +18,23 @@ class User:
 		self.servername = s
 		self.realname = r
 
-#defining global variables
-host = "fc00:1337::17"
-port = 6667
-usernr = 0
-userList = list(range(100))
+class Channel:
+	def __init__(self, n, ul = []):
+		self.name = n
+		self.userList = ul
+
+class Server:
+	def __init__(self, n = "Server", h = "fc00:1337::17", p = 6667, un = 0, ul = []):
+		self.name = n
+		self.host = h
+		self.port = p
+		self.usernr = un
+		self.userList = ul
+	def add_user(self, user):
+        	self.userList.append(user)
+        	self.userList = list(set(self.userList))
    
-def bind_new_socket(h, p):
-	global usernr
+def bind_new_socket(server, h, p):
 	#how to set up server socket: https://medium.com/python-pandemonium/python-socket-communication-e10b39225a4c
 	irc = socket.socket(socket.AF_INET6, socket.SOCK_STREAM)
 
@@ -45,45 +54,66 @@ def bind_new_socket(h, p):
 		print('\nWaiting for a connection')
 		connection, client_address = irc.accept()
 		if connection is not None:
-			userList[usernr] = User(connection, client_address, "", "", "", "","")
-			usernr = usernr+1
+			server.add_user(User(connection, client_address, "", "", "", "",""))
+			server.usernr = server.usernr+1
 			break
 
 #the main method runs as long as the server is running
 def main():
-	bind_new_socket(host, port)
+	main_server = Server()
+	bind_new_socket(main_server, main_server.host, main_server.port)
 	#keeping server alive using infinite loop and receiving messages: https://acloudguru.com/blog/engineering/creating-an-irc-bot-with-python3
-	while True:
+	x=True
+	while x:
 		#how to decode messages: https://acloudguru.com/blog/engineering/creating-an-irc-bot-with-python3
-		msg = (userList[usernr-1].connection.recv(2048).decode("UTF-8")).strip('nr')
-		print(msg)
-		#what messages to respond to for bot to login: https://www.rfc-editor.org/rfc/rfc2812#section-3.1.2
-		#if the message from client includes "NICK", save their nickname and welcome them
-		if msg.find("NICK") != -1:
-			nickname = msg.split(" ",1)[1].strip("\n")
-			userList[usernr-1].nickname = nickname
-			userList[usernr-1].connection.send(bytes("Welcome "+nickname, "UTF-8"))
-		#if the message from client includes "USER", save their user info
-		elif msg.find("CAP LS 302") != -1:
-			print("\n")
-		elif msg.find("USER") != -1:
-			username = msg.split(" ",4)[1]
-			userList[usernr-1].username = username
-			hostname = msg.split(" ",4)[2]
-			userList[usernr-1].hostname = hostname
-			servername = msg.split(" ",4)[3]
-			userList[usernr-1].servername = servername
-			realname = msg.split(" ",4)[4].strip("\n")
-			userList[usernr-1].realname = realname
-		#if the message from client includes "NICK", stop recieving messages and break the loop
-		elif msg.find("QUIT") != -1:
-			print("Not recieving messages")
-			#close the current connection
-			print("Closing current connection")
-			userList[usernr-1].connection.close()
-			break
-		else:
-			userList[usernr-1].connection.send(bytes("unknown command", "UTF-8"))
+		try:
+			msg = (main_server.userList[0].connection.recv(2048).decode("UTF-8")).strip('nr')
+			print("hi")
+			process_msg(msg, main_server)
+		except:
+			x=False
+		
+def process_msg(msg, server):
+        #what messages to respond to for bot to login: https://www.rfc-editor.org/rfc/rfc2812#section-3.1.2
+	#if the message from client includes "NICK", save their nickname and welcome them
+	if msg.find("NICK") != -1:
+		nickname = msg.split(" ",1)[1].strip("\n")
+		server.userlist[0].nickname = nickname
+		welcome(server)
+	#if the message from client includes "USER", save their user info
+	elif msg.find("USER") != -1:
+		username = msg.split(" ",4)[1]
+		server.userList[server.usernr-1].username = username
+		hostname = msg.split(" ",4)[2]
+		server.userList[server.usernr-1].hostname = hostname
+		servername = msg.split(" ",4)[3]
+		server.userList[server.usernr-1].servername = servername
+		realname = msg.split(" ",4)[4].strip("\n")
+		server.userList[server.usernr-1].realname = realname
+	#if the message from client includes "NICK", stop recieving messages and break the loop
+	elif msg.find("QUIT") != -1:
+		print("Not recieving messages")
+		close_connection(server)
+	elif msg.find("JOIN") != -1:
+                join_channel(msg, server.userList[server.usernr-1].nickname)
+	else:
+                send_error(server)
+
+def welcome(server):
+	print("hi")
+	server.userList[usernr-1].connection.send(bytes("Welcome "+server.userList[usernr-1].nickname, "UTF-8"))
+
+def close_connection(server):
+        #close the current connection
+	print("Closing current connection")
+	server.userList[usernr-1].connection.close()
+
+def send_error(server):
+        server.userList[usernr-1].connection.send(bytes("unknown command", "UTF-8"))
+
+def join_channel(msg, user):
+	channel = Channel(msg.split(' ',1)[1])
+	channel.userList.append(user)
 
 main()
    
