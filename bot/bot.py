@@ -136,10 +136,10 @@ def process_msg(msg):
             [cmd, arg] = msg.split(" ", 1)
         arg.strip("\n")
        #paramaters for private message: PRIVMSG command, target, text
-        if cmd == "PRIVMSG" and arg.find(channel.get_name() + " :!slap"):
+        if cmd == "PRIVMSG" and arg.find(channel.get_name() + " :!hello") != -1:
             user = prefix.split('!',1)[0][1:]
             respond_hello(channel.get_name(), user)
-        elif cmd == "PRIVMSG" and arg.find(channel.get_name()+" :!hello"):
+        elif cmd == "PRIVMSG" and arg.find(channel.get_name()+" :!slap") != -1:
             respond_slap(channel.get_name())
         #identify whether someone has left the channel and update the user list
         #paramaters for private message: QUIT command, quit message
