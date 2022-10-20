@@ -150,7 +150,7 @@ def process_msg(msg):
             print(*channel.get_userList(), sep = ", ")
         #identify whether someone has joined the channel and update the user list
         #paramaters for private message: JOIN command, channel
-        elif cmd == "JOIN" and arg == channel.get_name():           
+        elif cmd == "JOIN" and arg == channel.get_name(): 
             channel.add_users(send_names(channel.get_name()))
             print("users in this channel: ", end="")
             print(*channel.get_userList(), sep = ", ")
