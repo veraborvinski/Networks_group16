@@ -158,7 +158,7 @@ def process_join(arg, user):
 	channel.user_dict[user.socket] = user
 	for key, value in server.channel_dict[arg].user_dict.items():
 		value.socket.send(bytes(":" + value.name + " JOIN " + arg + "\r\n", "UTF-8"))
-	ircsend("PRIVMSG " + arg, "welcome", user)
+	user.socket.send(bytes(":" + server.name +" PRIVMSG " + arg + " :welcome" + "\r\n", "UTF-8"))
 	
 def process_names(arg, user):
 	RPL_NAMREPLY(arg, user)
@@ -192,7 +192,7 @@ def RPL_NAMREPLY(channel, user):
 	else:
 		for key, value in server.user_dict.items():
 			user_list.append(value.name)
-	user.socket.send(bytes(":" + server.name + " 353 " + user.name + " = " + channel + " :@" + str(user_list) + "\r\n", "UTF-8"))
+	user.socket.send(bytes(":" + server.name + " 353 " + user.name + " = " + channel + " :@" + str(user_list).replace("'", "") + "\r\n", "UTF-8"))
 	
 def RPL_ENDOFNAMES(channel, user):
 	user.socket.send(bytes(":" + server.name + " 366 " + user.name + " "+ channel + " :End of /NAMES list" + "\r\n", "UTF-8"))
@@ -200,15 +200,18 @@ def RPL_ENDOFNAMES(channel, user):
 def forward_msg(arg, sender):
 	reciever = arg.split(" ", 1)[0]
 	msg = arg.split(" ", 1)[1].strip("nr")
+	print(reciever)
 	#figure out how to get recievers socket
 	if reciever[0] == "#":
-		channel = server.channel_dict[receiver]
+		channel = server.channel_dict[reciever]
 		for key, value in channel.user_dict.items():
+			if value.name != sender.name:
+				value.socket.send(bytes(":" + sender.name +" PRIVMSG " + arg + "\r\n", "UTF-8"))
 			ircsend("PRIVMSG", arg, value)
 	else:
 		for key, value in server.user_dict.items():
 			if value.username == reciever:
-				ircsend("PRIVMSG", arg, value)
+				value.socket.send(bytes(":" + sender.name +" PRIVMSG " + value.name + " "+ msg + "\r\n", "UTF-8"))
 	
 def ircsend(cmd, args, user):
 	user.socket.send(bytes(user.mask + " " + cmd + " " + args + "\r\n", "UTF-8"))
