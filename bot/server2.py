@@ -27,6 +27,7 @@ class User:
 		self.host = h
 		self.realname = r
 		self.socket = sock
+		self.mask = self.name + "!" + self.user + "@" + self.host
 	
 class Channel:
 	def __init__(self, n):
@@ -144,7 +145,7 @@ def send_ping(address):
 	ircsend("PING", address)
 	
 def RPL_WELCOME(user):
-	msg = "001 Welcome to the Internet Relay Network " + user.name + "!" + user.username + "@" + user.host
+	msg = "001 Welcome to the Internet Relay Network " + user.mask
 	ircsend("", msg, user)
 	
 def RPL_YOURHOST(user):
@@ -167,7 +168,7 @@ def forward_msg(arg, sender):
 				ircsend("PRIVMSG", arg, key)
 	
 def ircsend(cmd, args, user):
-	user.sock.send(bytes(cmd + " " + args + "\r\n", "UTF-8"))
+	user.sock.send(bytes(user.mask + " " + cmd + " " + args + "\r\n", "UTF-8"))
 	
 #the main method runs as long as the server is running
 def main():	
