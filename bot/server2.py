@@ -7,121 +7,172 @@ import datetime
 import random
 import selectors
 import types
+import time
 
 sel = selectors.DefaultSelector()
+
+irc = socket.socket(socket.AF_INET6, socket.SOCK_STREAM)
 
 #defining global variables
 host = "fc00:1337::17"
 port = 6667
-usernr = 0
-userList = list(range(100))
+user_count = 0
 
 #class used to hold user objects
 class User:
-	def __init__(self, n):
+	def __init__(self, n, u, r, s = "server", sock = None, h = host):
 		self.name = n
+		self.server = s
+		self.username = u
+		self.host = h
+		self.realname = r
+		self.socket = sock
+		self.mask = self.name + "!" + self.username + "@" + self.host
 	
 class Channel:
-	def __init__(self, n, ul = set()):
+	def __init__(self, n):
 		self.name = n
-		self.userList = ul
+		self.user_dict: Dict[Socket, User] = {}
 
 class Server:
-	def __init__(self, n, ul = set()):
+	def __init__(self, n):
 		self.name = n
-		self.userList = ul
-   
-irc = socket.socket(socket.AF_INET6, socket.SOCK_STREAM)
-
-#try to bind socket to host and port
-#control for errors: https://medium.com/python-pandemonium/python-socket-communication-e10b39225a4c
-try:
-	irc.bind((host, port))
-except socket.error as err:
-	print(err)
-	sys.exit(1)
+		self.user_dict: Dict[Socket, User] = {}
+		self.channel_dict = {}
+	
+	def add_user(self, s):
+		self.user_dict[s] = (User("", "", "", sock = s))
+		
+	def close_connection(self, user):
+		sel.unregister(user.socket)
+		user.socket.close()
+		
+	def start(self):
+		#try to bind socket to host and port
+		#control for errors: https://medium.com/python-pandemonium/python-socket-communication-e10b39225a4c
+		try:
+			irc.bind((host, port))
+		except socket.error as err:
+			print(err)
+			sys.exit(1)
 	 
-#listen to whether a client connects   
-irc.listen(1)
+		#listen to whether a client connects   
+		irc.listen(1)
 
-irc.setblocking(False)
-sel.register(irc, selectors.EVENT_READ, data=None)
+		#irc.setblocking(False)
+		sel.register(irc, selectors.EVENT_READ, data=None)
+		print('\nWaiting for a connection')
+	
+		#while a connection is not recieved, let user know we are waiing for a connection
+		while True:
+			time.sleep(1)
+			events = sel.select(timeout=None)
+			for key, mask in events:
+				if key.data is None: #and key.fileobj != irc:
+					sock = key.fileobj
+					conn, addr = sock.accept()  
+					# Should be ready to read
+					conn.setblocking(False)
+					data = types.SimpleNamespace(addr=addr, inb=b"", outb=b"")
+					sel.register(conn, selectors.EVENT_READ, data=data)
+					# create a new User object with empty name/user/realname and the socket
+					self.add_user(sock)	
+					user = self.user_dict[sock]			
+				else: 
+					sock = key.fileobj
+					# retrieve the User object from server dictionary of users using the socket
+					service_connection(key, mask, user)
+					print("plop out service")
 
-def accept_wrapper(sock):
-	conn, addr = sock.accept()  # Should be ready to read
-	print(f"Accepted connection from {addr}")
-	conn.setblocking(False)
-	data = types.SimpleNamespace(addr=addr, inb=b"", outb=b"")
-	events = selectors.EVENT_READ | selectors.EVENT_WRITE
-	sel.register(conn, events, data=data)
-
-def service_connection(key, mask):
+def service_connection(key, mask, user):
 	sock = key.fileobj
 	data = key.data
 	if mask & selectors.EVENT_READ:
-		recv_data = sock.recv(1024)  # Should be ready to read
-		if recv_data:
-			data.outb += recv_data
+		msg = (sock.recv(1024).decode("UTF-8"))
+		if msg:
+			print("hi")
+			process_msg(msg, user)
 		else:
-			print(f"Closing connection to {data.addr}")
-			sel.unregister(sock)
-			sock.close()
-	if mask & selectors.EVENT_WRITE:
-		if data.outb:
-			msg = (sock.recv(2048).decode("UTF-8")).strip('nr')
-			process_msg(msg)
-			sent = sock.send(data.outb)  # Should be ready to write
-			data.outb = data.outb[sent:]
+			send_ping(data.addr)
+			if process_msg != 1:
+				server.close_connection(user)
 
-def process_msg(msg):
-	print(msg)
-	cmd = msg.split(" ",1)[0]
-	argument = msg.split(" ",1)[1].strip("\n")
-	if cmd == "NICK":
-		process_nick(argument)
-	elif cmd == "USER":
-		process_user(argument)
-	elif cmd == "JOIN":
-		process_join(argument)
-	else:
-		print(error)
+def process_msg(msg, user):
+	msgs = msg.split("\r\n")
+	i = 0
+	while i < len(msgs):
+		print(msgs[i])
+		currmsg = msgs[i].strip('nr')
+		cmd = currmsg.split(" ", 1)[0]
+		argument = currmsg.split(" ", 1)[1]
+		if cmd == "NICK":
+			process_nick(argument, user)
+		elif cmd == "USER":
+			process_user(argument, user)
+		elif cmd == "JOIN":
+			process_join(argument, user)
+		elif cmd == "QUIT":
+			process_quit()
+		elif cmd == "PONG":
+			return 1
+		elif cmd == "PRIVMSG":
+			forward_msg(arg, user)
+		else:
+			print("error")
+		i = i+1
 
-def process_nick(arg):
-	server = Server("server")
-	user = User(arg)
-	server.userList.add(user)
-	print(user.name)
+def process_nick(arg, user):
+	user.name = arg
+	
+def process_user(arg, user):
+	user_details = arg.split(" ")
+	user.username = user_details[0]
+	user.realname = user_details[3]
+	RPL_WELCOME(user)
+	RPL_YOURHOST(user)
+	RPL_CREATED(user)
 
-def process_user(arg):
-	print("hi")
-
-def process_join(arg):
+def process_join(arg, user):
 	channel = Channel(arg) 
-			
-print('\nWaiting for a connection')
+	channel.user_dict[user.socket] = user
+	if channel not in server.channel_dict:
+		server.channel_dict[arg] = channel
 
-try:
-	#while a connection is not recieved, let user know we are waiing for a connection
-	while True:
-		events = sel.select(timeout=None)
-		for key, mask in events:
-			if key.data is None:
-				accept_wrapper(key.fileobj)
-			else: 
-				service_connection(key, mask)
-except KeyboardInterrupt:
-	print(error)
-finally:
-	sel.close()
+def process_quit():
+	server.close_connection()
+
+def send_ping(address):
+	ircsend("PING", address)
+	
+def RPL_WELCOME(user):
+	msg = "001 Welcome to the Internet Relay Network " + user.mask
+	ircsend("", msg, user)
+	
+def RPL_YOURHOST(user):
+	ircsend("","002 Your host is server, running version 1", user)
+ 
+def RPL_CREATED():
+	ircsend("","003 This server was created 21/10-22", user)
+	
+def forward_msg(arg, sender):
+	reciever = arg.split(" ", 1)[0]
+	msg = arg.split(" ", 1)[1].strip("nr")
+	#figure out how to get recievers socket
+	if reciever[0] == "#":
+		channel = server.channel_dict[receiver]
+		for key, value in channel.user_dict.items():
+			ircsend("PRIVMSG", msg, value)
+	else:
+		for key, value in server.user_dict.items():
+			if value.username == reciever:
+				ircsend("PRIVMSG", arg, value)
+	
+def ircsend(cmd, args, user):
+	user.socket.send(bytes(user.mask + " " + cmd + " " + args + "\r\n", "UTF-8"))
 	
 #the main method runs as long as the server is running
-def main():
-	#keeping server alive using infinite loop and receiving messages: https://acloudguru.com/blog/engineering/creating-an-irc-bot-with-python3
-	while True:
-		#how to decode messages: https://acloudguru.com/blog/engineering/creating-an-irc-bot-with-python3
-		msg = (connection.recv(2048).decode("UTF-8")).strip('nr')
-		print("hi")
-		process_msg(msg)
-        
+def main():	
+	server.start()
+	
+server = Server("server")      
 main()
-   
