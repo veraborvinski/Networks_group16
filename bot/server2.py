@@ -46,6 +46,7 @@ class Server:
 	def close_connection(self, user):
 		sel.unregister(user.socket)
 		user.socket.close()
+		del self.user_dict[user.socket]
 		
 	def start(self):
 		#try to bind socket to host and port
@@ -192,7 +193,7 @@ def RPL_NAMREPLY(channel, user):
 	else:
 		for key, value in server.user_dict.items():
 			user_list.append(value.name)
-	user.socket.send(bytes(":" + server.name + " 353 " + user.name + " = " + channel + " :@" + str(user_list).replace("'", "") + "\r\n", "UTF-8"))
+	user.socket.send(bytes(":" + server.name + " 353 " + user.name + " = " + channel + " :@" + str(user_list).replace("'", "").replace("[", "").replace("]", "").replace(",", "").replace("'", "") + "\r\n", "UTF-8"))
 	
 def RPL_ENDOFNAMES(channel, user):
 	user.socket.send(bytes(":" + server.name + " 366 " + user.name + " "+ channel + " :End of /NAMES list" + "\r\n", "UTF-8"))
