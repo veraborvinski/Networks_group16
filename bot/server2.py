@@ -20,14 +20,14 @@ user_count = 0
 
 #class used to hold user objects
 class User:
-	def __init__(self, n, u, r, s = "server", sock = None, h = host):
+	def __init__(self, n, u, r, m, s = "server", sock = None, h = host):
 		self.name = n
 		self.server = s
 		self.username = u
 		self.host = h
 		self.realname = r
 		self.socket = sock
-		self.mask = self.name + "!" + self.username + "@" + self.host
+		self.mask = m
 	
 class Channel:
 	def __init__(self, n):
@@ -41,7 +41,7 @@ class Server:
 		self.channel_dict = {}
 	
 	def add_user(self, s):
-		self.user_dict[s] = (User("", "", "", sock = s))
+		self.user_dict[s] = User("", "", "", "", sock = s)
 		
 	def close_connection(self, user):
 		sel.unregister(user.socket)
@@ -68,7 +68,7 @@ class Server:
 			time.sleep(1)
 			events = sel.select(timeout=None)
 			for key, mask in events:
-				if key.data is None: #and key.fileobj != irc:
+				if key.data is None and key.fileobj == irc:
 					sock = key.fileobj
 					conn, addr = sock.accept()  
 					# Should be ready to read
@@ -76,11 +76,11 @@ class Server:
 					data = types.SimpleNamespace(addr=addr, inb=b"", outb=b"")
 					sel.register(conn, selectors.EVENT_READ, data=data)
 					# create a new User object with empty name/user/realname and the socket
-					self.add_user(sock)	
-					user = self.user_dict[sock]			
+					self.add_user(conn)									
 				else: 
 					sock = key.fileobj
 					# retrieve the User object from server dictionary of users using the socket
+					user = self.user_dict[sock]
 					service_connection(key, mask, user)
 					print("plop out service")
 
@@ -99,10 +99,13 @@ def service_connection(key, mask, user):
 
 def process_msg(msg, user):
 	msgs = msg.split("\r\n")
+	#remove blank lines: https://stackoverflow.com/questions/4842057/easiest-way-to-ignore-blank-lines-when-reading-a-file-in-python
+	msgs = (line.rstrip() for line in msgs) # All lines including the blank ones
+	msgs = list(line for line in msgs if line)
 	i = 0
 	while i < len(msgs):
 		print(msgs[i])
-		currmsg = msgs[i].strip('nr')
+		currmsg = msgs[i].strip('\n')
 		cmd = currmsg.split(" ", 1)[0]
 		argument = currmsg.split(" ", 1)[1]
 		if cmd == "NICK":
@@ -112,7 +115,7 @@ def process_msg(msg, user):
 		elif cmd == "JOIN":
 			process_join(argument, user)
 		elif cmd == "QUIT":
-			process_quit()
+			process_quit(user)
 		elif cmd == "PONG":
 			return 1
 		elif cmd == "PRIVMSG":
@@ -122,12 +125,18 @@ def process_msg(msg, user):
 		i = i+1
 
 def process_nick(arg, user):
+	for key, value in server.user_dict.items():
+		if value.name == arg:
+			arg = arg + "_"
 	user.name = arg
+	ircsend("NICK", arg, user)
+	print(user.name)
 	
 def process_user(arg, user):
 	user_details = arg.split(" ")
 	user.username = user_details[0]
 	user.realname = user_details[3]
+	user.mask = user.name + "!" + user.username + "@" + user.host
 	RPL_WELCOME(user)
 	RPL_YOURHOST(user)
 	RPL_CREATED(user)
@@ -138,8 +147,8 @@ def process_join(arg, user):
 	if channel not in server.channel_dict:
 		server.channel_dict[arg] = channel
 
-def process_quit():
-	server.close_connection()
+def process_quit(user):
+	server.close_connection(user)
 
 def send_ping(address):
 	ircsend("PING", address)
@@ -151,7 +160,7 @@ def RPL_WELCOME(user):
 def RPL_YOURHOST(user):
 	ircsend("","002 Your host is server, running version 1", user)
  
-def RPL_CREATED():
+def RPL_CREATED(user):
 	ircsend("","003 This server was created 21/10-22", user)
 	
 def forward_msg(arg, sender):
