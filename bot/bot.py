@@ -106,7 +106,7 @@ def send_names(channel):
 the pong function sends a pong to the server
 """
 def send_pong():
-    ircsend(bytes("PONG", ""))
+    ircsend("PONG", "")
 
 #the main method runs as long as the bot is running
 def main():
@@ -130,13 +130,16 @@ the process_msg function takes a message and identifies the appropriate response
 """
 def process_msg(msg):
         #identify a message in the channel and respond
-        [prefix, cmd, arg] = msg.split(" ", 2)
-        arg.strip(\n)
+        try:
+            [prefix, cmd, arg] = msg.split(" ", 2)
+        except:
+            [cmd, arg] = msg.split(" ", 1)
+        arg.strip("\n")
        #paramaters for private message: PRIVMSG command, target, text
-        if cmd == "PRIVMSG " and arg == channel.get_name() + " :!hello":
+        if cmd == "PRIVMSG" and arg.find(channel.get_name() + " :!slap"):
             user = prefix.split('!',1)[0][1:]
             respond_hello(channel.get_name(), user)
-        elif cmd == "PRIVMSG " and arg == channel.get_name()+" :!slap":
+        elif cmd == "PRIVMSG" and arg.find(channel.get_name()+" :!hello"):
             respond_slap(channel.get_name())
         #identify whether someone has left the channel and update the user list
         #paramaters for private message: QUIT command, quit message
@@ -147,7 +150,7 @@ def process_msg(msg):
             print(*channel.get_userList(), sep = ", ")
         #identify whether someone has joined the channel and update the user list
         #paramaters for private message: JOIN command, channel
-        elif cmd == " JOIN " and arg == channel.get_name():           
+        elif cmd == "JOIN" and arg == channel.get_name(): 
             channel.add_users(send_names(channel.get_name()))
             print("users in this channel: ", end="")
             print(*channel.get_userList(), sep = ", ")
