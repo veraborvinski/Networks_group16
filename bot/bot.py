@@ -133,8 +133,14 @@ def process_msg(msg):
         try:
             [prefix, cmd, arg] = msg.split(" ", 2)
         except:
-            [cmd, arg] = msg.split(" ", 1)
-        arg.strip("\n")
+            try:
+                [cmd, arg] = msg.split(" ", 1)
+            except:
+                cmd = msg
+        if arg:
+            arg.strip("\n")
+        else:
+            cmd.strip("\n")
        #paramaters for private message: PRIVMSG command, target, text
         if cmd == "PRIVMSG" and arg.find(channel.get_name() + " :!hello") != -1:
             user = prefix.split('!',1)[0][1:]
