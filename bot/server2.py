@@ -107,7 +107,10 @@ def process_msg(msg, user):
 		print(msgs[i])
 		currmsg = msgs[i].strip('\n')
 		cmd = currmsg.split(" ", 1)[0]
-		argument = currmsg.split(" ", 1)[1]
+		try:
+			argument = currmsg.split(" ", 1)[1]
+		except: 
+			argument = ""
 		if cmd == "NICK":
 			process_nick(argument, user)
 		elif cmd == "USER":
@@ -119,17 +122,20 @@ def process_msg(msg, user):
 		elif cmd == "PONG":
 			return 1
 		elif cmd == "PRIVMSG":
-			forward_msg(arg, user)
+			forward_msg(argument, user)
+		elif cmd == "NAMES":
+			process_names(argument, user)
 		else:
 			print("error")
 		i = i+1
 
 def process_nick(arg, user):
+	startnick = arg
 	for key, value in server.user_dict.items():
 		if value.name == arg:
 			arg = arg + "_"
 	user.name = arg
-	ircsend("NICK", arg, user)
+	user.socket.send(bytes(":" + startnick + " NICK " + arg + "\r\n", "UTF-8"))
 	print(user.name)
 	
 def process_user(arg, user):
@@ -146,6 +152,14 @@ def process_join(arg, user):
 	channel.user_dict[user.socket] = user
 	if channel not in server.channel_dict:
 		server.channel_dict[arg] = channel
+	user.socket.send(bytes(":" + user.name + " JOIN " + arg + "\r\n", "UTF-8"))
+	RPL_NAMREPLY(channel, user)
+	RPL_ENDOFNAMES(channel, user)
+	
+def process_names(arg, user):
+	RPL_NAMREPLY(arg, user)
+	RPL_ENDOFNAMES(arg, user)
+	
 
 def process_quit(user):
 	server.close_connection(user)
@@ -162,6 +176,19 @@ def RPL_YOURHOST(user):
  
 def RPL_CREATED(user):
 	ircsend("","003 This server was created 21/10-22", user)
+
+def RPL_NAMREPLY(channel, user):
+	user_list = list()
+	if channel != "":
+		for key, value in server.channel_dict[channel].user_dict.items():
+			user_list.append(value.name)
+	else:
+		for key, value in server.user_dict.items():
+			user_list.append(value.name)
+	ircsend("", "353" + channel + ":" + str(user_list), user)
+	
+def RPL_ENDOFNAMES(channel, user):
+	ircsend("", "366" + channel + " :End of /NAMES list", user)
 	
 def forward_msg(arg, sender):
 	reciever = arg.split(" ", 1)[0]
