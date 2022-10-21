@@ -230,7 +230,7 @@ def process_msg(msg, user):
 		elif cmd == "JOIN":
 			process_join(argument, user)
 		elif cmd == "QUIT":
-			process_quit(argment, user)
+			process_quit(argument, user)
 		#pong is just used to see if user is alive, does not need processing function
 		elif cmd == "PONG":
 			return 1
@@ -301,6 +301,10 @@ def process_user(arg, user):
 	#split the message into useful information
 	user_details = arg.split(" ")
 	
+	if len(user_details) < 4:
+		ERR_NEEDMOREPARAMS ("USER", user)
+	
+	
 	#set the user's details
 	user.username = user_details[0]
 	user.realname = user_details[3]
@@ -346,7 +350,7 @@ def process_join(arg, user):
 	
 	#send a message to everyone in the channel that the user has joined
 	for key, value in server.channel_dict[arg].user_dict.items():
-		ircsend(":" + user.name, "JOIN ", arg, value)
+		ircsend(":" + user.mask, "JOIN", arg, value)
 		
 	#welcome the user
 	#we couldn't find a specific numeric reply
@@ -403,16 +407,21 @@ def process_part(arg, user):
 	#seperate name from message
 	channelname = arg.split(" ")[0]
 	
+	try:
 	#try to find the channel in the server's channel dictionary
-	try: 
 		channel = server.channel_dict[channelname]
 		#try to delete the user from the channel's user dictionary
 		try: 
+			for key, value in channel.user_dict.items():
+				ircsend(":" + user.mask, "PART", arg, value)
 			del channel.user_dict[user.socket]
+		
 			#let everyone in the channel, including the user, know that the user has left the channel
-			for key, value in server.channel_dict[channelname].user_dict.items():
+			#send part message
+			for key, value in channel.user_dict.items():
 				process_names(channelname, value)
 			process_names(channelname, user)
+			
 		#except when user is not in the channel, call error
 		except:
 			ERR_NOTONCHANNEL(channelname, user)
