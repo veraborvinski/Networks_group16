@@ -4,6 +4,7 @@
 import sys
 import socket
 import datetime
+from datetime import datetime, timedelta
 import random
 import selectors
 import types
@@ -44,7 +45,8 @@ class User:
 		self.socket = sock
 		self.mask = m
 		#last time user was seen active
-		self.last_active = time.time()
+		self.last_active = datetime.today()
+		self.ping = False
 
 #class used to hold Channel objects	
 class Channel:
@@ -123,10 +125,29 @@ class Server:
 		#try to keep the socket alive
 		try:
 			#keeping server connection alive using infinite loop and receiving data: https://acloudguru.com/blog/engineering/creating-an-irc-bot-with-python3
+			last_check = datetime.today()
 			while True:
+				#check if users have been idle
+				#add seconds to time: https://bobbyhadz.com/blog/python-add-seconds-to-datetime
+				#check whether users are idle, inspiration: https://github.com/jrosdahl/miniircd/blob/master/miniircd
+				#only works if other users are active
+				if last_check + timedelta(seconds = 10)  < datetime.today():
+						if self.user_dict:
+							user_list = list()
+							for key, value in self.user_dict.items():
+								#send ping message if user has been idle for 90s
+								if value.last_active + timedelta(seconds = 90) < datetime.today() and value.last_active + timedelta(seconds = 180) > datetime.today():
+									if value.ping == False:
+										send_ping(value)
+								#close user's connection if idle for 180s
+								elif value.last_active + timedelta(seconds = 180) < datetime.today():
+									user_list.append(value)
+							for x in user_list:
+								process_quit("", x)
+							last_check = datetime.today()
 				events = sel.select(timeout=None)
 				for key, mask in events:
-					#checking data is comeing from the server socket
+					#checking data is coming from the server socket
 					if key.data is None and key.fileobj == irc:
 						sock = key.fileobj
 						#accept client connection from server
@@ -165,12 +186,6 @@ def service_connection(key, mask, user):
 		#if there is a message, process it
 		if msg:
 			process_msg(msg, user)
-		#send ping message if user has been idle for 90s
-		elif user.last_active + 90 < time.time():
-			send_ping(user)
-		#close user's connection if idle for 180s
-		elif user.last_active + 180 < time.time():
-			server.close_connection(user)
 
 """
 the process_msg function takes a message and splits it into an IRC command and an argument
@@ -181,7 +196,7 @@ the process_msg function takes a message and splits it into an IRC command and a
 """
 def process_msg(msg, user):
 	#update user#s acticity status
-	user.last_active = datetime.datetime.now()
+	user.last_active = datetime.today()
 	
 	#if there are several messages coming in at once, split them into a list
 	msgs = msg.split("\r\n")
@@ -227,6 +242,9 @@ def process_msg(msg, user):
 			process_who(argument, user)
 		elif cmd == "PART":
 			process_part(argument, user)
+		#hex chat uses whois instead of WHOIS
+		elif cmd == "WHOIS" or cmd == "whois":
+			process_whois(argument, user)
 		else:
 			ERR_UNKNOWNCOMMAND(cmd, user)
 		i = i+1
@@ -386,6 +404,18 @@ def process_part(arg, user):
 	except:
 		ERR_NOSUCHCHANNEL(channelname, user)
 
+"""
+the process_names calls two replies
+
+:param str arg: the user's nickname
+:param User user: the user who is asking for information
+"""		
+def process_whois(arg, user):
+	#hex chat formats argument with nick twice
+	nick = arg.split(" ")[0]
+	RPL_WHOISUSER(nick, user)
+	RPL_ENDOFWHOIS(nick, user)
+
 ###ALL SEND COMMAND FUNCTIONS UNDER HERE!###
 
 """
@@ -395,6 +425,7 @@ the send_ping function sends a ping to the user
 """
 def send_ping(user):
 	ircsend("", "PING", user.name, user)
+	user.ping = True
 
 """
 the forward_msg function forwards a private message from a user to another user or a channel
@@ -487,7 +518,7 @@ def RPL_CREATED(user):
 	ircsend(user.mask, "", "003 " + "This server was created 21/10-22", user)
 
 """
-the RPL_NAMREPLY fucntion sends a list of names
+the RPL_NAMREPLY function sends a list of names
 
 :param str channel: the channel's name, server if blank
 :param User user: the use
@@ -501,7 +532,7 @@ def RPL_NAMREPLY(channel, user):
 		for key, value in server.channel_dict[channel].user_dict.items():
 			user_list.append(value.name)
 	#else if it's a server, add server's users to the user list
-	elif channel = "":
+	elif channel == "":
 		for key, value in server.user_dict.items():
 			user_list.append(value.name)
 			
@@ -509,13 +540,34 @@ def RPL_NAMREPLY(channel, user):
 	ircsend(":" + server.name, "", "353 " + user.name + " = " + channel + " :" + str(user_list).replace("'", "").replace("[", "").replace("]", "").replace(",", "").replace("'", ""), user)
 	
 """
-the RPL_ENDOFNAMES ends the name list
+the RPL_ENDOFNAMES function ends the name list
 
 :param str channel: the channel's name, server if blank
 :param User user: the user
 """
 def RPL_ENDOFNAMES(channel, user):
 	ircsend(":" + server.name, "", "366 " + user.name + " "+ channel + " :End of /NAMES list", user)
+
+"""	
+the RPL_WHOISUSER sends a list of user information
+
+:param str channel: the user's nickname
+:param User user: the user who requested the information
+"""	
+def RPL_WHOISUSER(arg, user):
+	for key, value in server.user_dict.items():
+		if value.name == arg:
+			#user name is added twice due to hexchat convention(not following irc)
+			ircsend(":" + server.name, "", "311 " + value.name + " " + value.username + " " + value.username + " " + value.host + " * :" + value.realname, user)
+
+"""
+the RPL_ENDOFWHOIS function ends the whois list
+
+:param str channel: the user's nickname
+:param User user: the user who requested the information
+"""
+def RPL_ENDOFWHOIS(arg, user):
+	ircsend(":" + server.name, "", "318 " + arg + " :End of WHOIS list" , user)
 	
 ###ALL ERROR FUNCTIONS UNDER HERE!###
 	
