@@ -248,6 +248,8 @@ def process_msg(msg, user):
 		else:
 			ERR_UNKNOWNCOMMAND(cmd, user)
 		i = i+1
+		
+###ALL PROCESS COMMAND FUNCTIONS UNDER HERE!###
 
 """
 the process_nick function gives the user a new nickname
@@ -258,6 +260,25 @@ the process_nick function gives the user a new nickname
 def process_nick(arg, user):
 	#save the original nickname to use later
 	startnick = arg
+	
+	#replace any invalid character: https://stackoverflow.com/questions/23996118/replace-special-characters-in-a-string-in-python
+	arg = arg.translate ({ord(c): "" for c in ";;/#,.<>*~@+=()&%$£!"})
+	
+	#check if first character is invalid
+	for i in arg:
+		if i == "-" or i.isnumeric() == True:
+			arg = arg[1:]
+			if arg == "":
+				arg = "newnick"
+		else:
+			break
+		
+	if arg == "":
+		arg = "newnick"
+	
+	#shorten nick if longer than 9 chars
+	if len(arg) > 9:
+		arg = arg[:9]
 	
 	#if the nickname already excists, modify it
 	for key, value in server.user_dict.items():
@@ -330,8 +351,6 @@ def process_join(arg, user):
 	#welcome the user
 	#we couldn't find a specific numeric reply
 	ircsend(":" + server.name, "PRIVMSG", arg + " :welcome", user)
-	
-###ALL PROCESS COMMAND FUNCTIONS UNDER HERE!###
 
 """
 the process_names calls two replies
