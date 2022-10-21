@@ -7,22 +7,52 @@ import datetime
 import random
 import argparse
 
-#channel class stores the name and user list of a channel
+#class used to hold Channel objects
 class Channel:
+    """
+	constructor for class Channel
+    
+	:param str n: initial value for name
+    :param dictionary ud: empty dictionary
+	"""
     def __init__(self, n, ud = {}):
         self.name = n
         self.user_dict = ud
+    """
+	the add_user function adds a user to the user dictionary with its nickname as a key
+    
+	:param str nick: the nickname of the user being added
+	"""
     def add_user(self, nick):
         self.user_dict[nick] = User(nick, "", "", "")
+    """
+	the del_user function deletes a user to the user dictionary with its nickname as a key
+    
+	:param str nick: the nickname of the user being deleted
+	"""
     def del_user(self, nick):
         if nick in self.user_dict: del self.user_dict[nick]
+    """
+	the get_name function is the getter function for the name field
+	"""
     def get_name(self):
         return self.name
+    """
+	the get_user_dict function is the getter function for the user_dict field
+	"""
     def get_user_dict(self):
         return self.user_dict
 
-#channel class stores the name and user list of a channel
+#class used to hold User objects
 class User:
+    """
+	constructor for class User
+    
+	:param str n: initial value for name
+    :param str u: initial value for username
+    :param str r: initial value for realname
+    :param str h: initial value for host
+	"""
     def __init__(self, n, u, r, h):
         self.name = n
         self.username = u
